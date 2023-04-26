@@ -7,9 +7,12 @@
 //
 
 import UIKit
+import StoreKit
 
-class QuoteTableViewController: UITableViewController {
+class QuoteTableViewController: UITableViewController, SKPaymentTransactionObserver {
+   
     
+    let productID = "com.kaffka.InspoQuotes.PremiumQuotes"
     var quotesToShow = [
         "Our greatest glory is not in never falling, but in rising every time we fall. — Confucius",
         "All our dreams can come true, if we have the courage to pursue them. – Walt Disney",
@@ -30,7 +33,11 @@ class QuoteTableViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
+        SKPaymentQueue.default().add(self)
+        if isPurchased(){
+            showPremiumQuotes()
+        }
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
 
@@ -40,77 +47,97 @@ class QuoteTableViewController: UITableViewController {
 
     // MARK: - Table view data source
 
-    override func numberOfSections(in tableView: UITableView) -> Int {
-        // #warning Incomplete implementation, return the number of sections
-        return 0
-    }
+ 
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
-        return 0
+        if isPurchased(){
+            return quotesToShow.count
+        } else{
+            return quotesToShow.count + 1
+        }
+        
     }
-
-    /*
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "reuseIdentifier", for: indexPath)
-
-        // Configure the cell...
-
+        let cell = tableView.dequeueReusableCell(withIdentifier: "QuoteCell", for: indexPath)
+        if indexPath.row == quotesToShow.count {
+            cell.textLabel!.text = "Buy more Quotes"
+            cell.textLabel?.textColor = .systemMint
+            cell.accessoryType = .disclosureIndicator
+            
+        }
+        else{
+            cell.textLabel!.text = quotesToShow[indexPath.row]
+            cell.textLabel?.textColor = .black
+            cell.textLabel!.numberOfLines = 0
+        }
+       
         return cell
     }
-    */
 
-    /*
-    // Override to support conditional editing of the table view.
-    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the specified item to be editable.
-        return true
-    }
-    */
-
-    /*
-    // Override to support editing the table view.
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            // Delete the row from the data source
-            tableView.deleteRows(at: [indexPath], with: .fade)
-        } else if editingStyle == .insert {
-            // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-        }    
-    }
-    */
-
-    /*
-    // Override to support rearranging the table view.
-    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
-
-    }
-    */
-
-    /*
-    // Override to support conditional rearranging of the table view.
-    override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the item to be re-orderable.
-        return true
-    }
-    */
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
+    //MARK: - TableView Delegate method
     
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        if indexPath.row == quotesToShow.count{
+            buyPremiumQuotes()
+            print("Buy quotes")
+            tableView.deselectRow(at: indexPath, animated: true)
+        }
+    }
     
+    //MARK: - In-App purchase Method
+    func buyPremiumQuotes(){
+        if SKPaymentQueue.canMakePayments(){
+            print("Can make payment")
+            let paymentRequest = SKMutablePayment()
+            paymentRequest.productIdentifier = productID
+            SKPaymentQueue.default().add(paymentRequest)
+        }
+        else{
+            print("Can't make payment")
+        }
+    }
+    func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
+        for transaction in transactions {
+            if transaction.transactionState == .purchased {
+                print("transaction succesfull")
+                showPremiumQuotes()
+                SKPaymentQueue.default().finishTransaction(transaction)
+            } else if transaction.transactionState == .failed{
+               
+                if let error = transaction.error{
+                    let errorDescription = error.localizedDescription
+                    print("transaction unsuccesfull \(errorDescription)")
+                    
+                }
+            }
+            else if transaction.transactionState == .restored {
+                showPremiumQuotes()
+              
+                SKPaymentQueue.default().finishTransaction(transaction)
+                navigationItem.setRightBarButton(nil, animated: true)
+            }
+        }
+    }
     
-    
-    
+    func isPurchased() -> Bool {
+        if let purchaseStatus = UserDefaults.standard.object(forKey: productID) {
+            return purchaseStatus as! Bool
+        }
+        else {
+            return false
+        }
+      
+    }
+    // User Defaults can be deleted after update
     @IBAction func restorePressed(_ sender: UIBarButtonItem) {
-        
+        SKPaymentQueue().restoreCompletedTransactions()
+    }
+    func showPremiumQuotes(){
+        quotesToShow.append(contentsOf: premiumQuotes)
+        UserDefaults.standard.set(true, forKey: productID)
+        print("Succes")
+        tableView.reloadData()
     }
 
 
